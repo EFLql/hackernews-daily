@@ -228,11 +228,13 @@ def create_github_issue(posts, repo):
         # Add summary as hover text
         summary_str = f"{summary.get('type','')}\n{summary.get('content','')}\nKeywords: {summary.get('keywords','')}"
         #markdown += f"| [{post['title']}]({url} \"{summary_str}\") | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |\n"
-        markdown += f"""
-| [{post['title']}]({url}) | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |
-| :-- | --: | --: | :-- | :--: | --: |
-| <details><summary>查看详情</summary>\n\n**类型**: {summary['type']}\n\n**内容**: {summary['content']}\n\n**关键词**: {summary['keywords']}\n</details> | | | | | |
-"""
+        markdown += f"""<div style="margin-bottom: 16px">
+  <h3><a href="{url}">{post['title']}</a> <small>{post['points']}pts | {post['num_comments']} comments</small></h3>
+  <div><b>类型</b>: {summary['type']}<br>
+  <b>摘要</b>: {summary['content']}<br>
+  <b>关键词</b>: {summary['keywords']}</div>
+  <div style="color: #666">分类: {emoji} {category} | 置信度: {confidence:.0%}</div>
+</div>"""
 
     # Create issue via GitHub API
     response = requests.post(
