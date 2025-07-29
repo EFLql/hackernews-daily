@@ -1,0 +1,10 @@
+requests
+pandas
+pytz
+beautifulsoup4
+openai
+numpy
+torch
+scikit-learn
+FlagEmbedding
+joblib
