@@ -229,8 +229,7 @@ def create_github_issue(posts, repo):
         summary_str = f"{summary.get('type','')}\n{summary.get('content','')}\nKeywords: {summary.get('keywords','')}"
         #markdown += f"| [{post['title']}]({url} \"{summary_str}\") | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |\n"
         markdown += f"""
-| [{post['title']}]({url}) | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |
-| <details><summary>🔍</summary>{summary_str}</details> | | | | | |
+[{post['title']}]({url})^[summary: {summary_str}] | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |
 """
 
     # Create issue via GitHub API
