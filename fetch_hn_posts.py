@@ -160,7 +160,7 @@ class HNPredictor:
 
 predictor = HNPredictor('interest_model_fold4_base2.pt')
 
-def fetch_top_posts(days_back=1, limit=6):
+def fetch_top_posts(days_back=1, limit=60):
     """Fetch top HN posts from the Algolia API"""
     # Calculate date range (previous day in UTC)
     end_date = datetime.now(pytz.utc)
