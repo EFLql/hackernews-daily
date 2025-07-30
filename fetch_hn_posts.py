@@ -231,7 +231,7 @@ def create_github_issue(posts, repo):
   <div><b>类型</b>: {summary['type']}<br>
   <b>摘要</b>: {summary['content']}<br>
   <b>关键词</b>: {summary['keywords']}</div>
-  <div style="color: #666">分类: {emoji} {category} | 置信度: {confidence * 100:.0%}%</div>
+  <div style="color: #666">分类: {emoji} {category} | 置信度: {confidence*100:.0f}%</div>
 </div>"""
 
     # Create issue via GitHub API
