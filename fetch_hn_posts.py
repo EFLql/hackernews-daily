@@ -77,10 +77,15 @@ class SummaryGenerator:
         return parts
         
     def _get_summary(self, text, max_retries=3):
+        # Choose model based on text length
+        model_name = ("google/gemini-2.0-flash-exp:free" 
+                     if len(text.split()) > 130000 
+                     else "nousresearch/deephermes-3-llama-3-8b-preview:free")
         for attempt in range(max_retries):
             try:
                 response = self.client.chat.completions.create(
-                    model="nousresearch/deephermes-3-llama-3-8b-preview:free",
+                    model=model_name,
+                    #model="nousresearch/deephermes-3-llama-3-8b-preview:free",
                     #model="google/gemini-2.0-flash-exp:free",
                     messages=[
                         {"role": "system", "content": '''你是一个文章类型判断，关键词提取专家，帮助用户提取文章得以下内容：
@@ -99,6 +104,11 @@ class SummaryGenerator:
                 time.sleep(3)
     
     def generate(self, text, max_retries=3):
+        parts={
+            'type': "无法提取类型",
+            'content': "无法提取内容",
+            'keywords': "无法提取关键词" 
+        }
         for attempt in range(max_retries):
             try:
                 summary = self._get_summary(text)
@@ -112,12 +122,7 @@ class SummaryGenerator:
                 print(f"Summary failed: {e}")
                 time.sleep(3)
                 
-        # Fallback if all retries fail
-        return {
-            'type': parts['type'] if parts and parts['type'] else "无法提取类型",
-            'content': parts['content'] if parts and parts['content'] else "无法提取内容",
-            'keywords': parts['keywords'] if parts and parts['keywords'] else "无法提取关键词"
-        }
+        return parts
 
 class HNPostProcessor:
     def __init__(self, feature_extractor, summary_generator):
@@ -232,7 +237,7 @@ def create_github_issue(posts, repo):
   <div><b>类型</b>: {summary['type']}<br>
   <b>摘要</b>: {summary['content']}<br>
   <b>关键词</b>: {summary['keywords']}</div>
-  <div style="color: #666">分类: {emoji} {category} | 置信度: {confidence*100:.0f}%</div>
+  <div style="color: #666">{emoji} {confidence*100 if category == 1 else (1-confidence)*100:.0f}%</div>
 </div>"""
 
     # Create issue via GitHub API
