@@ -222,12 +222,13 @@ def create_github_issue(posts, repo):
             post['num_comments']
         )
         category, confidence = predictor.predict(features)
-        emoji = ["💔", "❤️"][category]  # Replace with your category emojis
-        url = post.get('url', f'https://news.ycombinator.com/item?id={post["objectID"]}')
+        emoji = ["🥱", "😍"][category]  # Replace with your category emojis
+        hnurl = f'https://news.ycombinator.com/item?id={post["objectID"]}'
+        url = post.get('url', hnurl)
 
         #markdown += f"| [{post['title']}]({url} \"{summary_str}\") | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |\n"
         markdown += f"""<div style="margin-bottom: 16px">
-  <h3><a href="{url}">{post['title']}</a> <small>{post['points']}pts | <a href="{url}">{post['num_comments']} comments</a></small></h3>
+  <h3><a href="{url}">{post['title']}</a> <small>{post['points']}pts | <a href="{hnurl}">{post['num_comments']} comments</a></small></h3>
   <div><b>类型</b>: {summary['type']}<br>
   <b>摘要</b>: {summary['content']}<br>
   <b>关键词</b>: {summary['keywords']}</div>
