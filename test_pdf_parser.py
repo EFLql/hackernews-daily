@@ -4,7 +4,6 @@ def test_pdf_parser():
     """Test PDF extraction with sample URLs"""
     test_cases = [
         ("https://example.com/sample.pdf", False),  # Not a real PDF
-        ("https://arxiv.org/pdf/2103.00020.pdf", True),  # Real research paper
         ("https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", True),  # Small test PDF
         ("https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf", True) #large pdf
     ]

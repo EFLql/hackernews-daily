@@ -14,6 +14,7 @@ from fusion_network import FeatureFusionNetwork
 from bs4 import BeautifulSoup
 from youtube_transcript import get_transcript_text
 from pdf_parser import extract_text_from_pdf_url
+from request_utils import fetch_url
 
 def clean_post_content(url):
     # Add YouTube check at start
@@ -47,7 +48,7 @@ def clean_post_content(url):
         return cleaned_text if len(cleaned_text) >= 100 else None
     
     try:
-        response = requests.get(url, timeout=10, headers=headers)
+        response = fetch_url(url, timeout=10, headers=headers)
         response.raise_for_status()
         
         if (result := process_page(response)):
@@ -59,7 +60,7 @@ def clean_post_content(url):
     
     # Try Wayback Machine if first attempt failed
     try:
-        response = requests.get(f"https://web.archive.org/{url}", headers=headers, timeout=10)
+        response = fetch_url(f"https://web.archive.org/{url}", headers=headers, timeout=10)
         response.raise_for_status()
         if (result := process_page(response)):
             return result

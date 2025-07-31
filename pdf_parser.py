@@ -1,13 +1,13 @@
 import io
-import re
 from PyPDF2 import PdfReader
-import requests
+
+from request_utils import fetch_url
 
 def extract_text_from_pdf_url(pdf_url: str) -> str:
     """Extract text from first and last 10 pages of PDF"""
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(pdf_url, timeout=10, headers=headers)
+        response = fetch_url(pdf_url, timeout=10, headers=headers)
         response.raise_for_status()
         
         with io.BytesIO(response.content) as pdf_file:
