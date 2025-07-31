@@ -9,3 +9,4 @@ scikit-learn
 FlagEmbedding
 joblib
 supadata 
+PyPDF2

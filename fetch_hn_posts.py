@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 from fusion_network import FeatureFusionNetwork
 from bs4 import BeautifulSoup
 from youtube_transcript import get_transcript_text
+from pdf_parser import extract_text_from_pdf_url
 
 def clean_post_content(url):
     # Add YouTube check at start
@@ -25,6 +26,13 @@ def clean_post_content(url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
     }
+
+    # Check for PDF
+    if url.lower().endswith('.pdf'):
+        if pdf_text := extract_text_from_pdf_url(url):
+            return pdf_text
+        print(f"No text extracted from PDF: {url}")
+        return ""
     
     def process_page(response):
         soup = BeautifulSoup(response.text, 'html.parser')
