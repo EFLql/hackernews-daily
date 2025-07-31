@@ -12,12 +12,21 @@ from FlagEmbedding import BGEM3FlagModel
 from sklearn.decomposition import PCA
 from fusion_network import FeatureFusionNetwork
 from bs4 import BeautifulSoup
+from youtube_transcript import get_transcript_text
 
 def clean_post_content(url):
+    # Add YouTube check at start
+    if "youtube.com" in url or "youtu.be" in url:
+        if transcript := get_transcript_text(url):
+            return transcript
+        print(f"No transcript available for YouTube video: {url}")
+        return ""
     """Fetch and clean post content from URL"""
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+    }
+    
+    def process_page(response):
         soup = BeautifulSoup(response.text, 'html.parser')
         
         # Remove unwanted elements
@@ -25,10 +34,31 @@ def clean_post_content(url):
             element.decompose()
             
         # Get clean text
-        return ' '.join(soup.stripped_strings)
+        cleaned_text = ' '.join(soup.stripped_strings)
+        # Consider it a good page if we have at least 100 characters of text
+        return cleaned_text if len(cleaned_text) >= 100 else None
+    
+    try:
+        response = requests.get(url, timeout=10, headers=headers)
+        response.raise_for_status()
+        
+        if (result := process_page(response)):
+            return result
+            
+        print(f"Page has insufficient content, trying Wayback Machine for {url}")
     except Exception as e:
         print(f"Error fetching {url}: {e}")
-        return ""
+    
+    # Try Wayback Machine if first attempt failed
+    try:
+        response = requests.get(f"https://web.archive.org/{url}", headers=headers, timeout=10)
+        response.raise_for_status()
+        if (result := process_page(response)):
+            return result
+    except Exception as e:
+        print(f"Error fetching {url} from Wayback Machine: {e}")
+    
+    return ""
     
 class FeatureExtractor:
     def __init__(self):
