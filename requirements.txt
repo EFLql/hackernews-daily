@@ -8,4 +8,4 @@ torch
 scikit-learn
 FlagEmbedding
 joblib
-youtube-transcript-api
+supadata 

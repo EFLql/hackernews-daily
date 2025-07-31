@@ -1,6 +1,8 @@
+import os
 from typing import Optional
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 from urllib.parse import urlparse, parse_qs
+from supadata import Supadata
 
 def is_youtube_url(url: str) -> bool:
     """Check if URL is a YouTube video URL"""
@@ -32,9 +34,13 @@ def get_transcript_text(url: str) -> str:
         return ""
         
     try:
-        api = YouTubeTranscriptApi()
-        transcript = api.fetch(video_id=video_id)
-        return " ".join([t['text'] for t in transcript])
+
+        supadata = Supadata(api_key=os.getenv('SUPADATA_API_KEY'))
+        text_transcript = supadata.youtube.transcript(
+            video_id=video_id,
+            text=True # Set to False to get the transcript with timestamps
+        )
+        return text_transcript.content
     except (TranscriptsDisabled, NoTranscriptFound):
         return ""
     except Exception as e:

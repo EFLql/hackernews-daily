@@ -20,11 +20,12 @@ def test_transcript_extraction():
         vid_id = extract_video_id(url)
         transcript = get_transcript_text(url)
         
-        print("{:<60} {:<10} {:<20} {}".format(
+        print("{:<60} {:<10} {:<20} {}, {}".format(
             url,
             "✓" if is_yt == expected_is_yt else f"✗ (expected {expected_is_yt})",
             vid_id if vid_id == expected_id else f"✗ (expected {expected_id})",
-            len(transcript)
+            len(transcript),
+            transcript if transcript else "No transcript available"
         ))
 
 if __name__ == '__main__':
