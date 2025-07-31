@@ -1,6 +1,5 @@
 import os
 from typing import Optional
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 from urllib.parse import urlparse, parse_qs
 from supadata import Supadata
 
@@ -41,8 +40,6 @@ def get_transcript_text(url: str) -> str:
             text=True # Set to False to get the transcript with timestamps
         )
         return text_transcript.content
-    except (TranscriptsDisabled, NoTranscriptFound):
-        return ""
     except Exception as e:
         print(f"Error getting transcript for {url}: {e}")
         return ""
