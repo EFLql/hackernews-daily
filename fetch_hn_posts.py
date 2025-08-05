@@ -15,14 +15,19 @@ from bs4 import BeautifulSoup
 from youtube_transcript import get_transcript_text
 from pdf_parser import extract_text_from_pdf_url
 from request_utils import fetch_url
+import supabase
+
+from dotenv import load_dotenv
+# 加载 .env 文件中的环境变量
+load_dotenv()
 
 def clean_post_content(url):
     # Add YouTube check at start
     if "youtube.com" in url or "youtu.be" in url:
         if transcript := get_transcript_text(url):
-            return transcript
+            return transcript, url
         print(f"No transcript available for YouTube video: {url}")
-        return ""
+        return "", url
     """Fetch and clean post content from URL"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
@@ -31,9 +36,9 @@ def clean_post_content(url):
     # Check for PDF
     if url.lower().endswith('.pdf'):
         if pdf_text := extract_text_from_pdf_url(url):
-            return pdf_text
+            return pdf_text, url
         print(f"No text extracted from PDF: {url}")
-        return ""
+        return "", url
     
     def process_page(response):
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -52,7 +57,7 @@ def clean_post_content(url):
         response.raise_for_status()
         
         if (result := process_page(response)):
-            return result
+            return result, url
             
         print(f"Page has insufficient content, trying Wayback Machine for {url}")
     except Exception as e:
@@ -60,14 +65,15 @@ def clean_post_content(url):
     
     # Try Wayback Machine if first attempt failed
     try:
-        response = fetch_url(f"https://web.archive.org/{url}", headers=headers, timeout=10)
+        wayback_url = f"https://web.archive.org/{url}"
+        response = fetch_url(wayback_url, headers=headers, timeout=10)
         response.raise_for_status()
         if (result := process_page(response)):
-            return result
+            return result, wayback_url
     except Exception as e:
         print(f"Error fetching {url} from Wayback Machine: {e}")
     
-    return ""
+    return "", url
     
 class FeatureExtractor:
     def __init__(self):
@@ -169,7 +175,7 @@ class HNPostProcessor:
         self.sg = summary_generator
         
     def process(self, title, text, url, score, comments):
-        processed_text = text if text else clean_post_content(url)
+        processed_text, url = text, url if text else clean_post_content(url)
         print(f"Processing post: {title} - {url}, Score: {score}, Comments: {comments}")
         summary = self.sg.generate(f"{processed_text}")
         print(f"Generated summary for {title}: {summary}")
@@ -179,7 +185,7 @@ class HNPostProcessor:
             self.fe.extract_embeddings(summary['content'], 'content'),
             self.fe.extract_embeddings(summary['keywords'], 'keyword')
         ]
-        return np.concatenate(features).reshape(1, -1), summary
+        return np.concatenate(features).reshape(1, -1), summary, url
 
 class HNPredictor:
     def __init__(self, model_path):
@@ -204,100 +210,129 @@ class HNPredictor:
 
 predictor = HNPredictor('interest_model_fold4_base2.pt')
 
-def fetch_top_posts(days_back=1, limit=60):
-    """Fetch top HN posts from the Algolia API"""
-    # Calculate date range (previous day in UTC)
-    end_date = datetime.now(pytz.utc)
-
-    # Check for custom date from env var
-    custom_date = os.getenv('DATE_FETCH')
-    if custom_date:
-        try:
-            end_date = datetime.strptime(custom_date, '%Y/%m/%d').replace(
-                tzinfo=pytz.utc
-            )
-            days_back = 1  # When using custom date, get that specific day's posts
-        except ValueError:
-            print(f"Invalid DATE_FETCH format, using current date")
-
-    start_date = end_date - timedelta(days=days_back)
+def fetch_top_posts(days_back=1, limit=200):
+    """Fetch top HN posts from Supabase where content_summary is null"""
+    # Initialize Supabase client
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_KEY')
+    if not supabase_url or not supabase_key:
+        raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
     
-    params = {
-        'tags': 'story',
-        'hitsPerPage': limit,
-        'numericFilters': f'created_at_i>{start_date.timestamp()},created_at_i<{end_date.timestamp()},points>=30',
-        'query': '',
-        'attributesToRetrieve': 'title,url,points,story_text,num_comments,created_at_i,author,objectID'
-    }
+    supabase_client = supabase.create_client(supabase_url, supabase_key)
     
-    print(f"Fetching posts from {start_date} to {end_date}")
-    response = requests.get('https://hn.algolia.com/api/v1/search', params=params)
-    response.raise_for_status()
-    return response.json()['hits']
+    # Query Supabase for posts where content_summary is null
+    try:
+        response = supabase_client.table('hn_posts').select(
+            'id, hn_id, title, url, points, created_at, descendants, user_id, content_summary, text'
+        ).is_(
+            'content_summary', 'null'
+        ).order(
+            'created_at', desc=True  # Get most recent posts first
+        ).limit(limit).execute()
+        
+        # Transform Supabase response to match existing format
+        posts = []
+        for row in response.data:
+            post = {
+                'objectID': row['hn_id'],  # Using hn_id as objectID for compatibility
+                'title': row['title'],
+                'url': row['url'],
+                'points': row['points'],
+                'num_comments': row['descendants'] or 0,  # descendants maps to num_comments
+                'author': row['user_id'],
+                'created_at_i': int(datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')).timestamp()),
+                'story_text': row['text'] or ''  # content_summary maps to story_text (will be empty)
+            }
+            posts.append(post)
+        
+        print(f"Fetched {len(posts)} posts from Supabase with null content_summary")
+        return posts
+        
+    except Exception as e:
+        print(f"Error fetching posts from Supabase: {e}")
+        return []
 
-def create_github_issue(posts, repo):
+def process_and_update_posts(posts):
+    """Process posts, extract summaries, and batch update Supabase"""
+    if not posts:
+        print("No posts to process")
+        return
+    
+    # Initialize components
     fe = FeatureExtractor()
     sg = SummaryGenerator()
     processor = HNPostProcessor(fe, sg)
-    predictor = HNPredictor('interest_model_fold4_base2.pt')
-
-    """Create GitHub issue with HN posts"""
-    # Determine title date
-    issue_date = datetime.now(pytz.utc)
-    if custom_date := os.getenv('DATE_FETCH'):
+    #predictor = HNPredictor('interest_model_fold4_base2.pt')
+    
+    # Initialize Supabase client
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_KEY')
+    if not supabase_url or not supabase_key:
+        raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
+    
+    supabase_client = supabase.create_client(supabase_url, supabase_key)
+    
+    # Process posts and collect updates
+    updates = []
+    for i, post in enumerate(posts):
         try:
-            issue_date = datetime.strptime(custom_date, '%Y/%m/%d').replace(tzinfo=pytz.utc)
-        except ValueError:
-            pass
+            print(f"Processing post {i+1}/{len(posts)}: {post['title']}")
             
-    issue_title = f"HN Top Posts {issue_date.strftime('%Y-%m-%d')}"
-
-    # Format markdown content
-    markdown = "## Today's Top Hacker News Posts\n\n"
-    markdown = "| Title | Points | Comments | Author | Category | Confidence |\n"
-    markdown += "|-------|--------|----------|--------|----------|------------|\n"
-
-    for post in posts:
-        features, summary = processor.process(
-            post['title'],
-            post.get('story_text', ''),
-            post.get('url', ''),
-            post['points'],
-            post['num_comments']
-        )
-        category, confidence = predictor.predict(features)
-        emoji = ["🥱", "😍"][category]  # Replace with your category emojis
-        hnurl = f'https://news.ycombinator.com/item?id={post["objectID"]}'
-        url = post.get('url', hnurl)
-
-        #markdown += f"| [{post['title']}]({url} \"{summary_str}\") | {post['points']} | {post['num_comments']} | {post['author']} | {emoji} {category} | {confidence:.2f} |\n"
-        markdown += f"""<div style="margin-bottom: 16px">
-  <h3><a href="{url}">{post['title']}</a> <small>{post['points']}pts | <a href="{hnurl}">{post['num_comments']} comments</a></small></h3>
-  <div><b>类型</b>: {summary['type']}<br>
-  <b>摘要</b>: {summary['content']}<br>
-  <b>关键词</b>: {summary['keywords']}</div>
-  <div style="color: #666">{emoji} {confidence*100 if category == 1 else (1-confidence)*100:.0f}%</div>
-</div>"""
-
-    # Create issue via GitHub API
-    response = requests.post(
-        f"https://api.github.com/repos/{repo}/issues",
-        headers={
-            "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
-            "Accept": "application/vnd.github.v3+json"
-        },
-        json={
-            "title": issue_title,
-            "body": markdown
-        }
-    )
-    response.raise_for_status()
-    return response.json()
+            # Process post to get features and summary
+            features, summary, url = processor.process(
+                post['title'],
+                post.get('story_text', ''),
+                post.get('url', ''),
+                post['points'],
+                post['num_comments']
+            )
+            
+            # Convert features to JSON with shape and dtype information
+            features_json = {
+                'data': features.flatten().tolist(),
+                'shape': features.shape,
+                'dtype': str(features.dtype)
+            }
+            
+            # Create update record
+            update_record = {
+                'id': post['id'],  # Use the database ID for updating
+                'content_summary': summary,
+                'post_features': features_json,  # Store features as JSON with metadata
+                'url': url  # Store cleaned URL
+            }
+            updates.append(update_record)
+            
+        except Exception as e:
+            print(f"Error processing post {post['title']}: {e}")
+            continue
+    
+    # Batch update Supabase
+    if updates:
+        try:
+            # Update posts in batches to avoid timeouts
+            batch_size = 50
+            for i in range(0, len(updates), batch_size):
+                batch = updates[i:i+batch_size]
+                print(f"Updating batch {i//batch_size+1}/{(len(updates)-1)//batch_size+1}")
+                
+                # Perform batch update
+                response = supabase_client.table('hn_posts').upsert(
+                    batch,
+                    on_conflict='id'
+                ).execute()
+                
+                print(f"Updated {len(batch)} posts in batch {i//batch_size+1}")
+                
+            print(f"Successfully updated {len(updates)} posts in Supabase")
+            
+        except Exception as e:
+            print(f"Error updating posts in Supabase: {e}")
+    else:
+        print("No posts to update")
 
 if __name__ == '__main__':
     print("Fetching top HN posts...")
-    repo = os.environ['GITHUB_REPOSITORY']
-    print(f"Using repository: {repo}")
     posts = fetch_top_posts()
-    create_github_issue(posts, repo)
+    process_and_update_posts(posts)
     print(f"Processed {len(posts)} posts")

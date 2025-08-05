@@ -10,3 +10,5 @@ FlagEmbedding
 joblib
 supadata 
 PyPDF2
+supabase
+dotenv
