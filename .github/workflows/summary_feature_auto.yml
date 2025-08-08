@@ -1,7 +1,7 @@
 name: summary and features
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Runs every 10 minutes
+    - cron: '*/5 * * * *'  # Runs every 10 minutes
   workflow_dispatch:  # Allow manual triggers
     inputs:
       target_date:
@@ -42,4 +42,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}
+
         run: python fetch_hn_posts.py
