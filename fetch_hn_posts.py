@@ -333,6 +333,6 @@ def process_and_update_posts(posts):
 
 if __name__ == '__main__':
     print("Fetching top HN posts...")
-    posts = fetch_top_posts()
+    posts = fetch_top_posts(limit=50)
     process_and_update_posts(posts)
     print(f"Processed {len(posts)} posts")
