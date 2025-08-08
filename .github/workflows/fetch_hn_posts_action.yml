@@ -1,0 +1,41 @@
+name: summary and extract features
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Runs every 20 minutes
+  workflow_dispatch:  # Allow manual triggers
+    inputs:
+      target_date:
+        description: 'Date to fetch (YYYY/MM/DD)'
+        required: false
+jobs:
+  fetch_posts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Fetch HN data and create issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Add to repo secrets
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}  # Optional, defaults to OpenRouter
+          GITHUB_REPOSITORY: ${{ vars.REPO }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}  # Add to repo secrets
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}  # Add to repo secrets
+        run: python fetch_hn_posts.py
