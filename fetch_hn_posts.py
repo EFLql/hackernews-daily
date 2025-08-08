@@ -175,7 +175,10 @@ class HNPostProcessor:
         self.sg = summary_generator
         
     def process(self, title, text, url, score, comments):
-        processed_text, url = text, url if text else clean_post_content(url)
+        if text:
+            processed_text = text
+        else:
+            processed_text, url = clean_post_content(url)
         print(f"Processing post: {title} - {url}, Score: {score}, Comments: {comments}")
         summary = self.sg.generate(f"{processed_text}")
         print(f"Generated summary for {title}: {summary}")
@@ -234,6 +237,7 @@ def fetch_top_posts(days_back=1, limit=200):
         posts = []
         for row in response.data:
             post = {
+                'id': row['id'],  # Use the database ID for updating
                 'objectID': row['hn_id'],  # Using hn_id as objectID for compatibility
                 'title': row['title'],
                 'url': row['url'],
@@ -274,6 +278,7 @@ def process_and_update_posts(posts):
     
     # Process posts and collect updates
     updates = []
+    
     for i, post in enumerate(posts):
         try:
             print(f"Processing post {i+1}/{len(posts)}: {post['title']}")
@@ -281,7 +286,7 @@ def process_and_update_posts(posts):
             # Process post to get features and summary
             features, summary, url = processor.process(
                 post['title'],
-                post.get('story_text', ''),
+                post.get('story_text'),
                 post.get('url', ''),
                 post['points'],
                 post['num_comments']
@@ -303,27 +308,37 @@ def process_and_update_posts(posts):
             }
             updates.append(update_record)
             
+            # Every 50 posts, sync to database
+            if len(updates) >= 15:
+                try:
+                    print(f"Syncing batch of {len(updates)} posts to Supabase")
+                    # Perform batch update
+                    response = supabase_client.table('hn_posts').upsert(
+                        updates,
+                        on_conflict='id'
+                    ).execute()
+                    
+                    print(f"Successfully updated {len(updates)} posts in Supabase")
+                    updates = []  # Clear updates after successful sync
+                    
+                except Exception as e:
+                    print(f"Error updating posts in Supabase: {e}")
+                    # Don't clear updates, so we can retry next time
+            
         except Exception as e:
             print(f"Error processing post {post['title']}: {e}")
             continue
     
-    # Batch update Supabase
+    # Update any remaining posts
     if updates:
         try:
-            # Update posts in batches to avoid timeouts
-            batch_size = 50
-            for i in range(0, len(updates), batch_size):
-                batch = updates[i:i+batch_size]
-                print(f"Updating batch {i//batch_size+1}/{(len(updates)-1)//batch_size+1}")
-                
-                # Perform batch update
-                response = supabase_client.table('hn_posts').upsert(
-                    batch,
-                    on_conflict='id'
-                ).execute()
-                
-                print(f"Updated {len(batch)} posts in batch {i//batch_size+1}")
-                
+            print(f"Syncing final batch of {len(updates)} posts to Supabase")
+            # Perform batch update
+            response = supabase_client.table('hn_posts').upsert(
+                updates,
+                on_conflict='id'
+            ).execute()
+            
             print(f"Successfully updated {len(updates)} posts in Supabase")
             
         except Exception as e:
