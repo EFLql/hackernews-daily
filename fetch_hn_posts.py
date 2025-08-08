@@ -113,12 +113,12 @@ class SummaryGenerator:
             'keywords': None
         }
         for line in text.split('\n'):
-            if line.startswith('文章类型：'):
-                parts['type'] = line.replace('文章类型：', '').strip()
-            elif line.startswith('文章大体内容：'):
-                parts['content'] = line.replace('文章大体内容：', '').strip()
-            elif line.startswith('关键词：'):
-                parts['keywords'] = line.replace('关键词：', '').strip()
+            if line.startswith('Type:'):
+                parts['type'] = line.replace('Type:', '').strip()
+            elif line.startswith('Summary:'):
+                parts['content'] = line.replace('Summary:', '').strip()
+            elif line.startswith('Keywords:'):
+                parts['keywords'] = line.replace('Keywords:', '').strip()
         return parts
         
     def _get_summary(self, text, max_retries=3):
@@ -133,10 +133,10 @@ class SummaryGenerator:
                     #model="nousresearch/deephermes-3-llama-3-8b-preview:free",
                     #model="google/gemini-2.0-flash-exp:free",
                     messages=[
-                        {"role": "system", "content": '''你是一个文章类型判断，关键词提取专家，帮助用户提取文章得以下内容：
-    文章类型：xxx
-    文章大体内容：一句话描述
-    关键词：'''},
+                        {"role": "system", "content": '''You are an expert in article type identification and keyword extraction. Please help extract the following information from the article:
+Type: xxx
+Summary: One sentence description
+Keywords:'''},
                         {"role": "user", "content": text}
                     ],
                     max_tokens=1024,
@@ -150,9 +150,9 @@ class SummaryGenerator:
     
     def generate(self, text, max_retries=3):
         parts={
-            'type': "无法提取类型",
-            'content': "无法提取内容",
-            'keywords': "无法提取关键词" 
+            'type': "Type not extracted",
+            'content': "Summary not extracted",
+            'keywords': "Keywords not extracted" 
         }
         for attempt in range(max_retries):
             try:
