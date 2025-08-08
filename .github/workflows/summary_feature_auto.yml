@@ -11,10 +11,10 @@ on:
 jobs:
   fetch_posts:
     runs-on: ubuntu-latest
-    # Only run this job on vercel_backend branch
-    if: github.ref == 'refs/heads/vercel_backend'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: vercel_backend  # Checkout vercel_backend branch specifically
       
       - name: Set up Python
         uses: actions/setup-python@v4
