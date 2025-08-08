@@ -1,15 +1,18 @@
 name: summary and features
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Runs every 20 minutes
+    - cron: '*/10 * * * *'  # Runs every 10 minutes
   workflow_dispatch:  # Allow manual triggers
     inputs:
       target_date:
         description: 'Date to fetch (YYYY/MM/DD)'
         required: false
+
 jobs:
   fetch_posts:
     runs-on: ubuntu-latest
+    # Only run this job on vercel_backend branch
+    if: github.ref == 'refs/heads/vercel_backend'
     steps:
       - uses: actions/checkout@v4
       
@@ -33,10 +36,9 @@ jobs:
       - name: Fetch HN data and create issue
         env:
           GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Add to repo secrets
-          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}  # Optional, defaults to OpenRouter
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           GITHUB_REPOSITORY: ${{ vars.REPO }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}  # Add to repo secrets
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}  # Add to repo secrets
-          SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}  # Add to repo secrets
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python fetch_hn_posts.py
