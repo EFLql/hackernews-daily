@@ -1,4 +1,4 @@
-name: Fetch HN Top Posts
+name: summary and features
 on:
   schedule:
     - cron: '*/10 * * * *'  # Runs every 20 minutes
@@ -38,4 +38,5 @@ jobs:
           GITHUB_REPOSITORY: ${{ vars.REPO }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}  # Add to repo secrets
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}  # Add to repo secrets
+          SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}  # Add to repo secrets
         run: python fetch_hn_posts.py
